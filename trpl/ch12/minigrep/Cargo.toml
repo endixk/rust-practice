@@ -2,6 +2,8 @@
 name = "endixk_minigrep"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "A simple grep implementation in Rust, based on the book \"The Rust Programming Language\""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
