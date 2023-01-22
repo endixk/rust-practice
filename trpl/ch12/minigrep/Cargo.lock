@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "greprs"
+name = "endixk_minigrep"
 version = "0.1.0"
