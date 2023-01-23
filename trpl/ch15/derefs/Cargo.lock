@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "smart_pointers"
+name = "derefs"
 version = "0.1.0"
