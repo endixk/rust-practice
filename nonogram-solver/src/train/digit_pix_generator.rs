@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::fs::File;
 use std::io::Write;
 
-fn flood_fill(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
+fn flood_fill_tb(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
     let mut queue = Vec::new();
     let mut visited = vec![vec![false; chunk[0].len()]; chunk.len()];
     let mut color = 0;
@@ -14,6 +14,40 @@ fn flood_fill(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
     let dy = [1, 0, -1, 0];
     for r in 0..chunk.len() {
         for c in 0..chunk[r].len() {
+            if visited[r][c] || chunk[r][c] {
+                continue;
+            }
+            color += 1;
+            queue.push((r, c));
+            while let Some((r, c)) = queue.pop() {
+                if visited[r][c] || chunk[r][c] {
+                    continue;
+                }
+                visited[r][c] = true;
+                arr[r][c] = color;
+                for i in 0..4 {
+                    let nr = r as i32 + dy[i];
+                    let nc = c as i32 + dx[i];
+                    if nr < 0 || nr >= chunk.len() as i32 || nc < 0 || nc >= chunk[r].len() as i32 {
+                        continue;
+                    }
+                    queue.push((nr as usize, nc as usize));
+                }
+            }
+        }
+    }
+
+    color
+}
+fn flood_fill_lr(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
+    let mut queue = Vec::new();
+    let mut visited = vec![vec![false; chunk[0].len()]; chunk.len()];
+    let mut color = 0;
+
+    let dx = [0, 1, 0, -1];
+    let dy = [1, 0, -1, 0];
+    for c in 0..chunk[0].len() {
+        for r in 0..chunk.len() {
             if visited[r][c] || chunk[r][c] {
                 continue;
             }
@@ -89,14 +123,17 @@ fn _visualize_matrix(mat: &Vec<Vec<bool>>) {
     }
 }
 
-fn dissect_column_chunk(chunk: &Vec<Vec<bool>>, header: String) {
+fn dissect_chunk(chunk: &Vec<Vec<bool>>, header: String, col: bool) {
     let mut arr = vec![vec![0 as u8; chunk[0].len()]; chunk.len()];
-    let cnt = flood_fill(chunk, &mut arr);
+    let cnt = match col {
+        true => flood_fill_tb(chunk, &mut arr),
+        false => flood_fill_lr(chunk, &mut arr)
+    };
 
     for color in 1..=cnt {
         let rmat = resize(crop(&arr, color), 50, 50);
         // write matrix to file
-        let mut file = File::create(format!("lib/ocr/raw/pix_{}_col_{}.txt", header, color)).unwrap();
+        let mut file = File::create(format!("lib/ocr/raw/pix_{}_{}.txt", header, color)).unwrap();
         for r in 0..rmat.len() {
             for c in 0..rmat[r].len() {
                 if rmat[r][c] {
@@ -127,8 +164,18 @@ pub fn generate(path: &str) {
     let chunks = count_color_chunks(&convert_row(&img, 545), 0xeaedf7);
     println!("Puzzle size: {}x{}", chunks.len(), chunks.len());
 
+    println!("Dissecting columns...");
     for chunk in chunks {
         let mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, 0xeaedf7);
-        dissect_column_chunk(&mat, format!("{}_col{}", header, chunk.0));
+        dissect_chunk(&mat, format!("{}_col{}", header, chunk.0), true);
     }
+
+    println!("Dissecting rows...");
+    let chunks = count_color_chunks(&convert_col(&img, 25), 0xeaedf7);
+    for chunk in chunks {
+        let mat = build_matrix(&img, 25, 190, chunk.0, chunk.1, 0xeaedf7);
+        dissect_chunk(&mat, format!("{}_row{}", header, chunk.0), false);
+    }
+
+    println!("Done!\n");
 }

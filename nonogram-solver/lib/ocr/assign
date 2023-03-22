@@ -1,0 +1,28 @@
+#!/bin/bash
+
+while read -u 3 FILE
+do
+	FLAG=0
+	for i in {1..10}
+	do
+		if test -f label/$i/$FILE
+		then
+			FLAG=1
+			break
+		fi
+	done
+
+	if test $FLAG -eq 1
+	then
+		echo "$FILE already assigned!"
+		echo
+		continue
+	fi
+
+	echo "Assigning label to $FILE"
+	cat raw/$FILE
+	read -p "What is this number? : " VAR
+	cp -v raw/$FILE label/$VAR/$FILE
+	echo
+
+done 3< <(ls raw)
