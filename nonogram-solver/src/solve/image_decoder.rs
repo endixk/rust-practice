@@ -1,6 +1,11 @@
+use crate::train::digit_pix_generator::dissect;
+use crate::train::ocr_classifier::classify;
 use image::{self, RgbImage};
 
 pub struct Puzzle {
+    size: usize,
+    row: Vec<Vec<u8>>,
+    col: Vec<Vec<u8>>,
 }
 
 pub fn convert_row(img: &RgbImage, row: u32) -> Vec<u32> {
@@ -53,12 +58,45 @@ fn _pixel_chunks(row: &Vec<bool>) -> u32 {
     ret
 }
 
-fn _parse_column_digits(_mat: &Vec<Vec<bool>>) -> Vec<u8> {
-    unimplemented!();
+fn parse_column_digits(mat: Vec<Vec<bool>>, tolerance: i32) -> Vec<u8> {
+    let mut ret = Vec::new();
+    let digits = dissect(mat, true);
+
+    let mut i = 0;
+    while i < digits.len() {
+        if i+1 < digits.len() &&
+            (digits[i].max_r as i32 - digits[i+1].max_r as i32).abs() +
+            (digits[i].min_r as i32 - digits[i+1].min_r as i32).abs() <= tolerance {
+                if digits[i].max_c < digits[i+1].max_c {
+                    ret.push(classify(&digits[i].mat) * 10 + classify(&digits[i+1].mat));
+                } else {
+                    ret.push(classify(&digits[i+1].mat) * 10 + classify(&digits[i].mat));
+                }
+                i += 1;
+            }
+        else {
+            ret.push(classify(&digits[i].mat));
+        }
+        i += 1;
+    }
+    ret
 }
 
-fn _parse_row_digits(_mat: &Vec<Vec<bool>>) -> Vec<u8> {
-    unimplemented!();
+fn parse_row_digits(mat: Vec<Vec<bool>>, tolerance: i32) -> Vec<u8> {
+    let mut ret = Vec::new();
+    let digits = dissect(mat, false);
+
+    let mut i = 0;
+    while i < digits.len() {
+        if i+1 < digits.len() && digits[i+1].min_c as i32 - digits[i].max_c as i32 <= tolerance {
+            ret.push(classify(&digits[i].mat) * 10 + classify(&digits[i+1].mat));
+            i += 1;
+        } else {
+            ret.push(classify(&digits[i].mat));
+        }
+        i += 1;
+    }
+    ret
 }
 
 pub fn build_matrix(img: &RgbImage, ws: u32, we: u32, hs: u32, he: u32, color: u32) -> Vec<Vec<bool>> {
@@ -88,19 +126,34 @@ pub fn decode(path: &str) -> Puzzle {
     println!("Image size: {}x{}", width, height);
 
     let chunks = count_color_chunks(&convert_row(&img, 545), 0xeaedf7);
-    println!("Puzzle size: {}x{}", chunks.len(), chunks.len());
+    let psize = chunks.len();
+    println!("Puzzle size: {}x{}", psize, psize);
+
+    let mut col = Vec::new();
     println!("Decoding columns...");
     for chunk in chunks {
-        let _mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, 0x271f56);
-        // let digits = parse_column_digits(&mat);
+        let mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, 0xeaedf7);
+        let digits = parse_column_digits(mat, 10);
+        println!("{:?}", digits);
+        col.push(digits);
     }
 
     let chunks = count_color_chunks(&convert_col(&img, 25), 0xeaedf7);
+    assert_eq!(chunks.len(), psize);
+
+    let mut row = Vec::new();
     println!("Decoding rows...");
     for chunk in chunks {
-        let _mat = build_matrix(&img, 25, 200, chunk.0, chunk.1, 0x271f56);
-        // let digits = parse_row_digits(&mat);
+        let mat = build_matrix(&img, 25, 190, chunk.0, chunk.1, 0xeaedf7);
+        let digits = parse_row_digits(mat, match psize {
+            10 => 12,
+            15 => 9,
+            20 => 6,
+            _ => panic!("Unknown puzzle size: {}", psize)
+        });
+        println!("{:?}", digits);
+        row.push(digits);
     }
 
-    Puzzle {}
+    Puzzle {size: psize, row, col}
 }
