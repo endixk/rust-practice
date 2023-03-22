@@ -1,5 +1,6 @@
-mod image_decoder;
+mod train;
+mod solve;
 
 fn main() {
-    let _puzzle = image_decoder::decode("capture/img_hard.png");
+    let _puzzle = train::digit_pix_generator::generate("lib/capture/img_hard_03.png");
 }
