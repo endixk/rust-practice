@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use crate::train::digit_pix_generator::dissect;
 use crate::train::ocr_classifier::classify;
 use image::{self, RgbImage};
@@ -6,6 +7,56 @@ pub struct Puzzle {
     size: usize,
     row: Vec<Vec<u8>>,
     col: Vec<Vec<u8>>,
+}
+
+impl std::fmt::Debug for Puzzle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut ret = String::new();
+        ret.push_str(format!("Puzzle size: {}x{}\n", self.size, self.size).as_str());
+
+        let mut rfmt = Vec::new();
+        for row in &self.row {
+            let mut r = String::new();
+            for digit in row {
+                r.push_str(format!("{} ", digit).as_str());
+            }
+            rfmt.push(r);
+        }
+        let max_len = rfmt.iter().map(|s| s.len()).max().unwrap();
+        let mut cfmt = Vec::new();
+        for col in &self.col {
+            let mut c = String::new();
+            for digit in col {
+                c.push_str(format!("{} ", digit).as_str());
+            }
+            cfmt.push(c);
+        }
+        let max_len = max_len.max(cfmt.iter().map(|s| s.len()).max().unwrap());
+
+        ret.push_str("Rows:\n");
+        for (rstr, rvec) in rfmt.iter().zip(self.row.iter()) {
+            ret.push_str(format!("{:>width$} ", rstr, width=max_len).as_str());
+            let occ_size = rvec.iter().sum::<u8>() + rvec.len() as u8 - 1;
+            ret.push_str(format!("[{:02$}/{:02$}] ", occ_size, self.size as u8, 2).as_str());
+            match occ_size <= self.size as u8 {
+                true => ret.push_str("OK\n"),
+                false => ret.push_str("NO\n"),
+            }
+        }
+
+        ret.push_str("Columns:\n");
+        for (cstr, cvec) in cfmt.iter().zip(self.col.iter()) {
+            ret.push_str(format!("{:>width$} ", cstr, width=max_len).as_str());
+            let occ_size = cvec.iter().sum::<u8>() + cvec.len() as u8 - 1;
+            ret.push_str(format!("[{:02$}/{:02$}] ", occ_size, self.size as u8, 2).as_str());
+            match occ_size <= self.size as u8 {
+                true => ret.push_str("OK\n"),
+                false => ret.push_str("NO\n"),
+            }
+        }
+
+        write!(f, "{}", ret)
+    }
 }
 
 pub fn convert_row(img: &RgbImage, row: u32) -> Vec<u32> {
@@ -118,23 +169,30 @@ pub fn get_image(path: &str) -> RgbImage {
     img.to_rgb8()
 }
 
-pub fn decode(path: &str) -> Puzzle {
-    println!("Loading image: {}", path);
+pub fn decode(path: &str, verbosity: u8) -> Puzzle {
+    if verbosity > 0 {
+        println!("Loading image: {}", path);
+    }
     let img = get_image(path);
 
     let (width, height) = img.dimensions();
-    println!("Image size: {}x{}", width, height);
+    if verbosity > 1 {
+        println!("Image size: {}x{}", width, height);
+    }
 
     let chunks = count_color_chunks(&convert_row(&img, 545), 0xeaedf7);
     let psize = chunks.len();
-    println!("Puzzle size: {}x{}", psize, psize);
+    if verbosity > 0 {
+        println!("Puzzle size: {}x{}", psize, psize);
+    }
 
     let mut col = Vec::new();
-    println!("Decoding columns...");
+    if verbosity > 1 {
+        println!("Decoding columns...");
+    }
     for chunk in chunks {
         let mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, 0xeaedf7);
         let digits = parse_column_digits(mat, 10);
-        println!("{:?}", digits);
         col.push(digits);
     }
 
@@ -142,7 +200,9 @@ pub fn decode(path: &str) -> Puzzle {
     assert_eq!(chunks.len(), psize);
 
     let mut row = Vec::new();
-    println!("Decoding rows...");
+    if verbosity > 1 {
+        println!("Decoding rows...");
+    }
     for chunk in chunks {
         let mat = build_matrix(&img, 25, 190, chunk.0, chunk.1, 0xeaedf7);
         let digits = parse_row_digits(mat, match psize {
@@ -151,9 +211,12 @@ pub fn decode(path: &str) -> Puzzle {
             20 => 6,
             _ => panic!("Unknown puzzle size: {}", psize)
         });
-        println!("{:?}", digits);
         row.push(digits);
     }
 
-    Puzzle {size: psize, row, col}
+    let puzzle = Puzzle {size: psize, row, col};
+    if verbosity > 2 {
+        println!("{:?}", puzzle);
+    }
+    puzzle
 }

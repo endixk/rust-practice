@@ -74,31 +74,6 @@ fn flood_fill_lr(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
     color
 }
 
-fn crop(arr: &Vec<Vec<u8>>, color: u8) -> Vec<Vec<bool>> {
-    let mut min_r = arr.len();
-    let mut max_r = 0;
-    let mut min_c = arr[0].len();
-    let mut max_c = 0;
-    for r in 0..arr.len() {
-        for c in 0..arr[r].len() {
-            if arr[r][c] == color {
-                min_r = min_r.min(r);
-                max_r = max_r.max(r);
-                min_c = min_c.min(c);
-                max_c = max_c.max(c);
-            }
-        }
-    }
-
-    let mut ret = vec![vec![false; max_c - min_c + 1]; max_r - min_r + 1];
-    for r in min_r..=max_r {
-        for c in min_c..=max_c {
-            ret[r - min_r][c - min_c] = arr[r][c] == color;
-        }
-    }
-
-    ret
-}
 fn bound(arr: &Vec<Vec<u8>>, color: u8) -> (usize, usize, usize, usize) {
     let mut min_r = arr.len();
     let mut max_r = 0;
@@ -117,7 +92,17 @@ fn bound(arr: &Vec<Vec<u8>>, color: u8) -> (usize, usize, usize, usize) {
 
     (min_r, max_r, min_c, max_c)
 }
+fn crop(arr: &Vec<Vec<u8>>, color: u8) -> Vec<Vec<bool>> {
+    let (min_r, max_r, min_c, max_c) = bound(arr, color);
+    let mut ret = vec![vec![false; max_c - min_c + 1]; max_r - min_r + 1];
+    for r in min_r..=max_r {
+        for c in min_c..=max_c {
+            ret[r - min_r][c - min_c] = arr[r][c] == color;
+        }
+    }
 
+    ret
+}
 fn resize(mat: Vec<Vec<bool>>, sw: usize, sh: usize) -> Vec<Vec<bool>> {
     let mut ret = vec![vec![false; sw]; sh];
     for r in 0..sh {
