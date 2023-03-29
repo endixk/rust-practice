@@ -4,9 +4,9 @@ use crate::train::ocr_classifier::classify;
 use image::{self, RgbImage};
 
 pub struct Puzzle {
-    size: usize,
-    row: Vec<Vec<u8>>,
-    col: Vec<Vec<u8>>,
+    pub size: usize,
+    pub row: Vec<Vec<u8>>,
+    pub col: Vec<Vec<u8>>,
 }
 
 impl std::fmt::Debug for Puzzle {

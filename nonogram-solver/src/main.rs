@@ -4,6 +4,8 @@ mod train;
 mod solve;
 
 use std::fs;
+use std::env::args;
+use solve::*;
 
 fn _generate() {
     let paths = fs::read_dir("lib/capture").unwrap();
@@ -23,5 +25,9 @@ fn _train() {
 fn main() {
     // _generate();
     // _train();
-    solve::image_decoder::decode("lib/capture/IMG_2682.PNG");
+    let path = args().nth(1).unwrap();
+    let verbosity = args().nth(2).unwrap().parse::<u8>().unwrap();
+
+    let puzzle = image_decoder::decode(&path, verbosity);
+    puzzle_solver::solve(puzzle, verbosity);
 }
