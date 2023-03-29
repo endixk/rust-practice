@@ -1,9 +1,8 @@
-use crate::solve::image_decoder::*;
-
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::fs::File;
 use std::io::Write;
+use crate::solve::image_decoder::*;
 
 fn flood_fill_tb(chunk: &Vec<Vec<bool>>, arr: &mut Vec<Vec<u8>>) -> u8 {
     let mut queue = Vec::new();

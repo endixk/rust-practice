@@ -1,7 +1,7 @@
 use std::fmt::Formatter;
+use image::{self, RgbImage};
 use crate::train::digit_pix_generator::dissect;
 use crate::train::ocr_classifier::classify;
-use image::{self, RgbImage};
 
 pub struct Puzzle {
     pub size: usize,
@@ -56,6 +56,16 @@ impl std::fmt::Debug for Puzzle {
         }
 
         write!(f, "{}", ret)
+    }
+}
+
+impl Clone for Puzzle {
+    fn clone(&self) -> Self {
+        Puzzle {
+            size: self.size,
+            row: self.row.clone(),
+            col: self.col.clone(),
+        }
     }
 }
 
