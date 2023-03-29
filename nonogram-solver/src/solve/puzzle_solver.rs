@@ -204,7 +204,7 @@ impl PuzzleGrid {
         }
     }
 
-    fn solve(&mut self, loc: usize, is_row: bool) {
+    fn solve(&mut self, loc: usize, is_row: bool) -> bool {
         let sizes = match is_row {
             true => &self.puzzle.row[loc],
             false => &self.puzzle.col[loc],
@@ -227,12 +227,16 @@ impl PuzzleGrid {
         }
 
         // update the grid
+        let mut changed = false;
         match is_row {
             true => {
                 for (i, &x) in consensus.iter().enumerate() {
                     if self.grid[loc][i] == 0 {
                         assert_ne!(x, -2);
                         self.grid[loc][i] = x;
+                        if x != 0 {
+                            changed = true;
+                        }
                     }
                 }
             },
@@ -241,10 +245,15 @@ impl PuzzleGrid {
                     if self.grid[i][loc] == 0 {
                         assert_ne!(x, -2);
                         self.grid[i][loc] = x;
+                        if x != 0 {
+                            changed = true;
+                        }
                     }
                 }
             },
         }
+
+        changed
     }
 }
 
@@ -292,14 +301,12 @@ fn strategy_simple(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     while !grid.solved() {
         for r in 0..grid.puzzle.size {
             if !grid.row_solved(r) {
-                grid.solve(r, true);
-                guesses += 1;
+                guesses += grid.solve(r, true) as u32;
             }
         }
         for c in 0..grid.puzzle.size {
             if !grid.col_solved(c) {
-                grid.solve(c, false);
-                guesses += 1;
+                guesses += grid.solve(c, false) as u32;
             }
         }
         rounds += 1;
@@ -333,30 +340,24 @@ fn strategy_outskirt(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     while !grid.solved() {
         for d in 0..grid.puzzle.size / 2 {
             if !grid.row_solved(d) {
-                grid.solve(d, true);
-                guesses += 1;
+                guesses += grid.solve(d, true) as u32;
             }
             if !grid.row_solved(grid.puzzle.size - d - 1) {
-                grid.solve(grid.puzzle.size - d - 1, true);
-                guesses += 1;
+                guesses += grid.solve(grid.puzzle.size - d - 1, true) as u32;
             }
             if !grid.col_solved(d) {
-                grid.solve(d, false);
-                guesses += 1;
+                guesses += grid.solve(d, false) as u32;
             }
             if !grid.col_solved(grid.puzzle.size - d - 1) {
-                grid.solve(grid.puzzle.size - d - 1, false);
-                guesses += 1;
+                guesses += grid.solve(grid.puzzle.size - d - 1, false) as u32;
             }
         }
         if grid.puzzle.size % 2 == 1 {
             if !grid.row_solved(grid.puzzle.size / 2) {
-                grid.solve(grid.puzzle.size / 2, true);
-                guesses += 1;
+                guesses += grid.solve(grid.puzzle.size / 2, true) as u32;
             }
             if !grid.col_solved(grid.puzzle.size / 2) {
-                grid.solve(grid.puzzle.size / 2, false);
-                guesses += 1;
+                guesses += grid.solve(grid.puzzle.size / 2, false) as u32;
             }
         }
 
@@ -409,8 +410,7 @@ fn strategy_free_width(puzzle: Puzzle, verbosity: u8) -> SolveResult {
                 false if grid.col_solved(gvec.loc) => continue,
                 _ => (),
             }
-            grid.solve(gvec.loc, gvec.is_row);
-            guesses += 1;
+            guesses += grid.solve(gvec.loc, gvec.is_row) as u32;
         }
 
         rounds += 1;
@@ -429,62 +429,12 @@ fn strategy_free_width(puzzle: Puzzle, verbosity: u8) -> SolveResult {
 
     SolveResult { grid, strategy, rounds, guesses }
 }
-fn strategy_dof(puzzle: Puzzle, verbosity: u8) -> SolveResult {
+fn strategy_info_gain(puzzle: Puzzle, round: bool, verbosity: u8) -> SolveResult {
     let mut grid = PuzzleGrid::new(puzzle);
-    let strategy = String::from("Degree of freedom");
-    let mut rounds = 0;
-    let mut guesses = 0;
-
-    if verbosity > 3 {
-        println!("Strategy: {}", strategy);
-        println!("Press enter to start...");
-        let mut input = String::new();
-        stdin().read_line(&mut input).unwrap();
-    }
-
-    while !grid.solved() {
-        let mut gvecs = Vec::new();
-        for r in 0..grid.puzzle.size {
-            if !grid.row_solved(r) {
-                gvecs.push(GridVector { loc: r, is_row: true, cargo: grid.dof(r, true) as i32 });
-            }
-        }
-        for c in 0..grid.puzzle.size {
-            if !grid.col_solved(c) {
-                gvecs.push(GridVector { loc: c, is_row: false, cargo: grid.dof(c, false) as i32 });
-            }
-        }
-        gvecs.sort_by(|a, b| a.cargo.cmp(&b.cargo));
-
-        for gvec in gvecs {
-            match gvec.is_row {
-                true if grid.row_solved(gvec.loc) => continue,
-                false if grid.col_solved(gvec.loc) => continue,
-                _ => (),
-            }
-            grid.solve(gvec.loc, gvec.is_row);
-            guesses += 1;
-        }
-
-        rounds += 1;
-        if verbosity > 3 {
-            println!("Round {}", rounds);
-            grid.visualize();
-            println!("Press enter to continue...");
-            let mut input = String::new();
-            stdin().read_line(&mut input).unwrap();
-        }
-    }
-
-    if verbosity > 0 {
-        println!("{} strategy: {} rounds, {} guesses", strategy, rounds, guesses);
-    }
-
-    SolveResult { grid, strategy, rounds, guesses }
-}
-fn strategy_info_gain(puzzle: Puzzle, verbosity: u8) -> SolveResult {
-    let mut grid = PuzzleGrid::new(puzzle);
-    let strategy = String::from("Information gain");
+    let strategy = match round {
+        true => String::from("Information gain (round based)"),
+        false => String::from("Information gain"),
+    };
     let mut rounds = 0;
     let mut guesses = 0;
 
@@ -515,8 +465,12 @@ fn strategy_info_gain(puzzle: Puzzle, verbosity: u8) -> SolveResult {
                 false if grid.col_solved(gvec.loc) => continue,
                 _ => (),
             }
-            grid.solve(gvec.loc, gvec.is_row);
-            guesses += 1;
+            if round {
+                guesses += grid.solve(gvec.loc, gvec.is_row) as u32;
+            } else if grid.solve(gvec.loc, gvec.is_row) {
+                guesses += 1;
+                break;
+            }
         }
 
         rounds += 1;
@@ -530,7 +484,73 @@ fn strategy_info_gain(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     }
 
     if verbosity > 0 {
-        println!("{} strategy: {} rounds, {} guesses", strategy, rounds, guesses);
+        match round {
+            true => println!("{} strategy: {} rounds, {} guesses", strategy, rounds, guesses),
+            false => println!("{} strategy: {} guesses", strategy, guesses),
+        };
+    }
+
+    SolveResult { grid, strategy, rounds, guesses }
+}
+fn strategy_dof(puzzle: Puzzle, round: bool, verbosity: u8) -> SolveResult {
+    let mut grid = PuzzleGrid::new(puzzle);
+    let strategy = match round {
+        true => String::from("Degree of freedom (round based)"),
+        false => String::from("Degree of freedom"),
+    };
+    let mut rounds = 0;
+    let mut guesses = 0;
+
+    if verbosity > 3 {
+        println!("Strategy: {}", strategy);
+        println!("Press enter to start...");
+        let mut input = String::new();
+        stdin().read_line(&mut input).unwrap();
+    }
+
+    while !grid.solved() {
+        let mut gvecs = Vec::new();
+        for r in 0..grid.puzzle.size {
+            if !grid.row_solved(r) {
+                gvecs.push(GridVector { loc: r, is_row: true, cargo: grid.dof(r, true) as i32 });
+            }
+        }
+        for c in 0..grid.puzzle.size {
+            if !grid.col_solved(c) {
+                gvecs.push(GridVector { loc: c, is_row: false, cargo: grid.dof(c, false) as i32 });
+            }
+        }
+        gvecs.sort_by(|a, b| a.cargo.cmp(&b.cargo));
+
+        for gvec in gvecs {
+            match gvec.is_row {
+                true if grid.row_solved(gvec.loc) => continue,
+                false if grid.col_solved(gvec.loc) => continue,
+                _ => (),
+            }
+            if round {
+                guesses += grid.solve(gvec.loc, gvec.is_row) as u32;
+            } else if grid.solve(gvec.loc, gvec.is_row) {
+                guesses += 1;
+                break;
+            }
+        }
+
+        rounds += 1;
+        if verbosity > 3 {
+            println!("Round {}", rounds);
+            grid.visualize();
+            println!("Press enter to continue...");
+            let mut input = String::new();
+            stdin().read_line(&mut input).unwrap();
+        }
+    }
+
+    if verbosity > 0 {
+        match round {
+            true => println!("{} strategy: {} rounds, {} guesses", strategy, rounds, guesses),
+            false => println!("{} strategy: {} guesses", strategy, guesses),
+        };
     }
 
     SolveResult { grid, strategy, rounds, guesses }
@@ -540,11 +560,13 @@ pub fn solve(puzzle: Puzzle, verbosity: u8) {
     let best = strategy_simple(puzzle.clone(), verbosity);
     let best = best.min(strategy_outskirt(puzzle.clone(), verbosity));
     let best = best.min(strategy_free_width(puzzle.clone(), verbosity));
-    let best = best.min(strategy_info_gain(puzzle.clone(), verbosity));
-    let best = best.min(strategy_dof(puzzle.clone(), verbosity));
+    let best = best.min(strategy_info_gain(puzzle.clone(), true, verbosity));
+    let best = best.min(strategy_info_gain(puzzle.clone(), false, verbosity));
+    let best = best.min(strategy_dof(puzzle.clone(), true, verbosity));
+    let best = best.min(strategy_dof(puzzle.clone(), false, verbosity));
     if verbosity > 0 { println!(); }
 
-    println!("Best strategy: {} [{} rounds, {} guesses]", best.strategy, best.rounds, best.guesses);
+    println!("Best strategy: {} with {} guesses", best.strategy, best.guesses);
     println!("Solution: ");
     best.grid.visualize();
 }

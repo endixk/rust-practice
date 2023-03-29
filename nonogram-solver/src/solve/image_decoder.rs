@@ -190,7 +190,8 @@ pub fn decode(path: &str, verbosity: u8) -> Puzzle {
         println!("Image size: {}x{}", width, height);
     }
 
-    let chunks = count_color_chunks(&convert_row(&img, 545), 0xeaedf7);
+    let color = 0xeaedf7;
+    let chunks = count_color_chunks(&convert_row(&img, 545), color);
     let psize = chunks.len();
     if verbosity > 0 {
         println!("Puzzle size: {}x{}", psize, psize);
@@ -201,12 +202,12 @@ pub fn decode(path: &str, verbosity: u8) -> Puzzle {
         println!("Decoding columns...");
     }
     for chunk in chunks {
-        let mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, 0xeaedf7);
+        let mat = build_matrix(&img, chunk.0, chunk.1, 545, 745, color);
         let digits = parse_column_digits(mat, 10);
         col.push(digits);
     }
 
-    let chunks = count_color_chunks(&convert_col(&img, 25), 0xeaedf7);
+    let chunks = count_color_chunks(&convert_col(&img, 25), color);
     assert_eq!(chunks.len(), psize);
 
     let mut row = Vec::new();
@@ -214,7 +215,7 @@ pub fn decode(path: &str, verbosity: u8) -> Puzzle {
         println!("Decoding rows...");
     }
     for chunk in chunks {
-        let mat = build_matrix(&img, 25, 190, chunk.0, chunk.1, 0xeaedf7);
+        let mat = build_matrix(&img, 25, 190, chunk.0, chunk.1, color);
         let digits = parse_row_digits(mat, match psize {
             10 => 12,
             15 => 9,
