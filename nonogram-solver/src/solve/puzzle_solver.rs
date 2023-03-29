@@ -2,9 +2,12 @@ use std::io::stdin;
 use itertools::Itertools;
 use crate::solve::image_decoder::Puzzle;
 
-struct PuzzleGrid {
-    puzzle: Puzzle,
-    grid: Vec<Vec<i8>>, // 0: unknown, 1: black, -1: white
+fn char(n: u8) -> char {
+    match n {
+        0..=9 => (n as u8 + b'0') as char,
+        10..=35 => (n as u8 + b'A' - 10) as char,
+        _ => panic!("char: n out of range"),
+    }
 }
 
 fn combine(a: Vec<i8>, b: Vec<i8>) -> Vec<i8> {
@@ -70,6 +73,10 @@ fn possible_locations(sizes: &Vec<u8>, status: Vec<i8>) -> Result<Vec<Vec<usize>
     }
 }
 
+struct PuzzleGrid {
+    puzzle: Puzzle,
+    grid: Vec<Vec<i8>>, // 0: unknown, 1: black, -1: white
+}
 impl PuzzleGrid {
     fn new(puzzle: Puzzle) -> Self {
         let mut grid = Vec::new();
@@ -160,7 +167,30 @@ impl PuzzleGrid {
     }
 
     fn visualize(&self) {
-        for row in &self.grid {
+        let mut rfmt = Vec::new();
+        for row in &self.puzzle.row {
+            let mut r = String::new();
+            for &digit in row {
+                r.push_str(format!("{} ", char(digit)).as_str());
+            }
+            rfmt.push(r);
+        }
+        let rmax = rfmt.iter().map(|s| s.len()).max().unwrap();
+
+        let &cmax = &self.puzzle.col.iter().map(|x| x.len()).max().unwrap();
+        for i in (0..cmax).rev() {
+            print!("{:>width$}", "", width=rmax+1);
+            for col in &self.puzzle.col {
+                if i < col.len() {
+                    print!("{} ", char(col[col.len()-i-1]));
+                } else {
+                    print!("  ");
+                }
+            }
+            println!();
+        }
+        for (rstr, row) in rfmt.iter().zip(&self.grid) {
+            print!("{:>width$}", rstr, width=rmax);
             for cell in row {
                 if *cell == 0 {
                     print!("⬜️");
@@ -252,7 +282,7 @@ fn strategy_simple(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     let mut rounds = 0;
     let mut guesses = 0;
 
-    if verbosity > 2 {
+    if verbosity > 3 {
         println!("Strategy: {}", strategy);
         println!("Press enter to start...");
         let mut input = String::new();
@@ -273,7 +303,7 @@ fn strategy_simple(puzzle: Puzzle, verbosity: u8) -> SolveResult {
             }
         }
         rounds += 1;
-        if verbosity > 2 {
+        if verbosity > 3 {
             println!("Round {}", rounds);
             grid.visualize();
             println!("Press enter to continue...");
@@ -293,7 +323,7 @@ fn strategy_outskirt(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     let mut rounds = 0;
     let mut guesses = 0;
 
-    if verbosity > 2 {
+    if verbosity > 3 {
         println!("Strategy: {}", strategy);
         println!("Press enter to start...");
         let mut input = String::new();
@@ -331,7 +361,7 @@ fn strategy_outskirt(puzzle: Puzzle, verbosity: u8) -> SolveResult {
         }
 
         rounds += 1;
-        if verbosity > 2 {
+        if verbosity > 3 {
             println!("Round {}", rounds);
             grid.visualize();
             println!("Press enter to continue...");
@@ -352,7 +382,7 @@ fn strategy_free_width(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     let mut rounds = 0;
     let mut guesses = 0;
 
-    if verbosity > 2 {
+    if verbosity > 3 {
         println!("Strategy: {}", strategy);
         println!("Press enter to start...");
         let mut input = String::new();
@@ -384,7 +414,7 @@ fn strategy_free_width(puzzle: Puzzle, verbosity: u8) -> SolveResult {
         }
 
         rounds += 1;
-        if verbosity > 2 {
+        if verbosity > 3 {
             println!("Round {}", rounds);
             grid.visualize();
             println!("Press enter to continue...");
@@ -405,7 +435,7 @@ fn strategy_dof(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     let mut rounds = 0;
     let mut guesses = 0;
 
-    if verbosity > 2 {
+    if verbosity > 3 {
         println!("Strategy: {}", strategy);
         println!("Press enter to start...");
         let mut input = String::new();
@@ -437,7 +467,7 @@ fn strategy_dof(puzzle: Puzzle, verbosity: u8) -> SolveResult {
         }
 
         rounds += 1;
-        if verbosity > 2 {
+        if verbosity > 3 {
             println!("Round {}", rounds);
             grid.visualize();
             println!("Press enter to continue...");
@@ -458,7 +488,7 @@ fn strategy_info_gain(puzzle: Puzzle, verbosity: u8) -> SolveResult {
     let mut rounds = 0;
     let mut guesses = 0;
 
-    if verbosity > 2 {
+    if verbosity > 3 {
         println!("Strategy: {}", strategy);
         println!("Press enter to start...");
         let mut input = String::new();
@@ -490,7 +520,7 @@ fn strategy_info_gain(puzzle: Puzzle, verbosity: u8) -> SolveResult {
         }
 
         rounds += 1;
-        if verbosity > 2 {
+        if verbosity > 3 {
             println!("Round {}", rounds);
             grid.visualize();
             println!("Press enter to continue...");
@@ -510,9 +540,11 @@ pub fn solve(puzzle: Puzzle, verbosity: u8) {
     let best = strategy_simple(puzzle.clone(), verbosity);
     let best = best.min(strategy_outskirt(puzzle.clone(), verbosity));
     let best = best.min(strategy_free_width(puzzle.clone(), verbosity));
-    let best = best.min(strategy_dof(puzzle.clone(), verbosity));
     let best = best.min(strategy_info_gain(puzzle.clone(), verbosity));
+    let best = best.min(strategy_dof(puzzle.clone(), verbosity));
+    if verbosity > 0 { println!(); }
 
     println!("Best strategy: {} [{} rounds, {} guesses]", best.strategy, best.rounds, best.guesses);
+    println!("Solution: ");
     best.grid.visualize();
 }
