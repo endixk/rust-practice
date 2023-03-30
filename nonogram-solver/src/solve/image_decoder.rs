@@ -4,6 +4,7 @@ use crate::train::digit_pix_generator::dissect;
 use crate::train::ocr_classifier::classify;
 
 pub struct Puzzle {
+    pub path: String,
     pub size: usize,
     pub row: Vec<Vec<u8>>,
     pub col: Vec<Vec<u8>>,
@@ -62,6 +63,7 @@ impl std::fmt::Debug for Puzzle {
 impl Clone for Puzzle {
     fn clone(&self) -> Self {
         Puzzle {
+            path: self.path.clone(),
             size: self.size,
             row: self.row.clone(),
             col: self.col.clone(),
@@ -225,7 +227,7 @@ pub fn decode(path: &str, verbosity: u8) -> Puzzle {
         row.push(digits);
     }
 
-    let puzzle = Puzzle {size: psize, row, col};
+    let puzzle = Puzzle {path: String::from(path), size: psize, row, col};
     if verbosity > 2 {
         println!("{:?}", puzzle);
     }

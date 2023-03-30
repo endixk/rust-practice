@@ -1,5 +1,7 @@
-use std::io::stdin;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, stdin, Write};
 use itertools::Itertools;
+use md5::{Md5, Digest};
 use crate::solve::image_decoder::Puzzle;
 
 fn char(n: u8) -> char {
@@ -204,6 +206,35 @@ impl PuzzleGrid {
         }
     }
 
+    fn visualize_sfw(&self){
+        for row in &self.grid {
+            // print consecutive blocks
+            let mut blocks = Vec::new();
+            let mut last = -1;
+            for (i, &cell) in row.iter().enumerate() {
+                if cell == 1 {
+                    if last == -1 {
+                        last = i as i8;
+                    }
+                } else {
+                    if last != -1 {
+                        blocks.push((last + 1, i as i8));
+                        last = -1;
+                    }
+                }
+            }
+            if last != -1 {
+                blocks.push((last + 1, self.puzzle.size as i8));
+            }
+
+            print!("{}-{}", blocks[0].0, blocks[0].1);
+            for block in blocks.iter().skip(1) {
+                print!(", {}-{}", block.0, block.1);
+            }
+            println!();
+        }
+    }
+
     fn solve(&mut self, loc: usize, is_row: bool) -> bool {
         let sizes = match is_row {
             true => &self.puzzle.row[loc],
@@ -270,7 +301,7 @@ struct SolveResult {
     guesses: u32,
 }
 impl SolveResult {
-    fn min(self, other: SolveResult) -> Self {
+    fn min<'a>(&'a self, other: &'a SolveResult) -> &'a SolveResult {
         if self.guesses < other.guesses {
             self
         } else if self.guesses > other.guesses {
@@ -556,17 +587,75 @@ fn strategy_dof(puzzle: Puzzle, round: bool, verbosity: u8) -> SolveResult {
     SolveResult { grid, strategy, rounds, guesses }
 }
 
-pub fn solve(puzzle: Puzzle, verbosity: u8) {
-    let best = strategy_simple(puzzle.clone(), verbosity);
-    let best = best.min(strategy_outskirt(puzzle.clone(), verbosity));
-    let best = best.min(strategy_free_width(puzzle.clone(), verbosity));
-    let best = best.min(strategy_info_gain(puzzle.clone(), true, verbosity));
-    let best = best.min(strategy_info_gain(puzzle.clone(), false, verbosity));
-    let best = best.min(strategy_dof(puzzle.clone(), true, verbosity));
-    let best = best.min(strategy_dof(puzzle.clone(), false, verbosity));
+fn write_report(puzzle: &Puzzle, path: String, results: &[SolveResult], verbosity: u8) {
+    print!("Writing report to {}... ", path);
     if verbosity > 0 { println!(); }
 
+    // hash the puzzle
+    let mut file = File::open(&puzzle.path).unwrap();
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).unwrap();
+
+    let mut hasher = Md5::new();
+    hasher.update(bytes.as_slice());
+    let hash = format!("{:x}", hasher.finalize());
+
+    // find if the puzzle has been solved before
+    let mut report = File::open(&path).unwrap_or_else(|_| {
+        if verbosity > 0 { println!("Report not found, creating new report..."); }
+        let mut report = File::create(&path).unwrap();
+        report.write_all(b"md5sum\tsize\tsimple\toutskirt\twidth\tinfo_round\tinfo\tdof_round\tdof\n").unwrap();
+        File::open(&path).unwrap()
+    });
+
+    // iterate through the report
+    let mut report_dump = String::new();
+    report.read_to_string(&mut report_dump).unwrap();
+    for ele in report_dump.split_ascii_whitespace() {
+        if hash == String::from(ele) {
+            println!("Puzzle already solved!");
+            return;
+        }
+    }
+
+    // write the puzzle to the report
+    let mut entries = Vec::new();
+    entries.push(hash);
+    entries.push(format!("{}", puzzle.size));
+    for result in results {
+        entries.push(format!("{}", result.guesses));
+    }
+
+    let mut report = OpenOptions::new().append(true).open(&path).unwrap();
+    report.write_all(format!("{}\n", entries.join("\t")).as_bytes()).unwrap();
+    if verbosity == 0 { println!("Done!"); }
+}
+
+pub fn solve(puzzle: Puzzle, report: Option<String>, sfw: bool, verbosity: u8) {
+    let mut results = Vec::new();
+    results.push(strategy_simple(puzzle.clone(), verbosity));
+    results.push(strategy_outskirt(puzzle.clone(), verbosity));
+    results.push(strategy_free_width(puzzle.clone(), verbosity));
+    results.push(strategy_info_gain(puzzle.clone(), true, verbosity));
+    results.push(strategy_info_gain(puzzle.clone(), false, verbosity));
+    results.push(strategy_dof(puzzle.clone(), true, verbosity));
+    results.push(strategy_dof(puzzle.clone(), false, verbosity));
+
+    let mut best = &results[0];
+    for result in results.iter().skip(1) {
+        best = best.min(&result);
+    }
+    if verbosity > 0 { println!(); }
     println!("Best strategy: {} with {} guesses", best.strategy, best.guesses);
+
+    if let Some(path) = report {
+        write_report(&puzzle, path, &results, verbosity);
+        println!();
+    }
+
     println!("Solution: ");
-    best.grid.visualize();
+    match sfw {
+        true => best.grid.visualize_sfw(),
+        false => best.grid.visualize(),
+    }
 }

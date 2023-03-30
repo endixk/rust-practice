@@ -9,3 +9,5 @@ edition = "2021"
 image = "0.24.5"
 lazy_static = "1.4.0"
 itertools = "0.10.5"
+clap = { version = "4.2.1", features = ["derive"] }
+md-5 = "0.10.5"
