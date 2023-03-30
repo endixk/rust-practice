@@ -206,7 +206,8 @@ impl PuzzleGrid {
         }
     }
 
-    fn visualize_sfw(&self){
+    fn visualize_sfw(&self, zero: bool){
+        let index = !zero as i8;
         for row in &self.grid {
             // print consecutive blocks
             let mut blocks = Vec::new();
@@ -218,13 +219,13 @@ impl PuzzleGrid {
                     }
                 } else {
                     if last != -1 {
-                        blocks.push((last + 1, i as i8));
+                        blocks.push((last + index, i as i8 + index - 1));
                         last = -1;
                     }
                 }
             }
             if last != -1 {
-                blocks.push((last + 1, self.puzzle.size as i8));
+                blocks.push((last + index, self.puzzle.size as i8 + index - 1));
             }
 
             print!("{}-{}", blocks[0].0, blocks[0].1);
@@ -631,7 +632,7 @@ fn write_report(puzzle: &Puzzle, path: String, results: &[SolveResult], verbosit
     if verbosity == 0 { println!("Done!"); }
 }
 
-pub fn solve(puzzle: Puzzle, report: Option<String>, sfw: bool, verbosity: u8) {
+pub fn solve(puzzle: Puzzle, report: Option<String>, sfw: bool, zero: bool, verbosity: u8) {
     let mut results = Vec::new();
     results.push(strategy_simple(puzzle.clone(), verbosity));
     results.push(strategy_outskirt(puzzle.clone(), verbosity));
@@ -655,7 +656,7 @@ pub fn solve(puzzle: Puzzle, report: Option<String>, sfw: bool, verbosity: u8) {
 
     println!("Solution: ");
     match sfw {
-        true => best.grid.visualize_sfw(),
+        true => best.grid.visualize_sfw(zero),
         false => best.grid.visualize(),
     }
 }

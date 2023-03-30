@@ -37,6 +37,10 @@ struct Args {
     #[arg(short, long)]
     sfw: bool,
 
+    /// Use zero-based index for --sfw output
+    #[arg(short, long)]
+    zero: bool,
+
     /// Program verbosity
     #[arg(short, long, default_value_t = 0)]
     verbose: u8,
@@ -48,5 +52,5 @@ fn main() {
     // _train();
     let args = Args::parse();
     let puzzle = image_decoder::decode(&args.input, args.verbose);
-    puzzle_solver::solve(puzzle, args.report, args.sfw, args.verbose);
+    puzzle_solver::solve(puzzle, args.report, args.sfw, args.zero, args.verbose);
 }
